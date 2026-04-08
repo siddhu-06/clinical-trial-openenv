@@ -1,0 +1,131 @@
+name: clinical-trial-env
+version: 1.0.0
+sdk: docker
+app_port: 8000
+hf_space: true
+description: 'A real-world clinical trial protocol review environment for RL agent
+  training. Agents act as regulatory review officers: identifying violations in synthetic
+  clinical trial protocols, classifying severity, suggesting corrections, and producing
+  regulatory findings reports. Unique cascade-violation mechanic in the hard task.
+
+  '
+tags:
+- openenv
+- healthcare
+- clinical-trials
+- regulatory-compliance
+- real-world
+- document-review
+author: clinical-trial-env contributors
+license: MIT
+tasks:
+- id: easy
+  name: Clause Violation Identification
+  difficulty: easy
+  max_steps: 4
+  description: 'Identify which sections of a 5-section protocol violate regulatory
+    rules. 2 violations present. Graded on F1 and severity accuracy.
+
+    '
+- id: medium
+  name: Full Protocol Review with Corrections
+  difficulty: medium
+  max_steps: 8
+  description: 'Review an 8-section protocol with 4 violations of varying severity.
+    Must flag all violations and suggest regulatory-compliant corrections. Graded
+    on detection F1, severity accuracy, correction keyword quality, and efficiency.
+
+    '
+- id: hard
+  name: Multi-Round Review with Cascade Detection
+  difficulty: hard
+  max_steps: 14
+  description: 'Full 12-section Phase III protocol with 5 violations including one
+    cascade: undefined eligibility criteria cascades into an undefined analysis population.
+    Multi-round review with simulated regulatory reviewer feedback. Graded on cascade
+    detection, adaptation to feedback, correction quality, and report completeness.
+
+    '
+observation_space:
+  type: object
+  description: Text-based protocol observation with metadata
+  fields:
+    protocol_id:
+      type: string
+      description: Deterministic protocol identifier
+    protocol_text:
+      type: string
+      description: Full protocol text
+    task:
+      type: string
+      enum:
+      - easy
+      - medium
+      - hard
+    step:
+      type: integer
+    max_steps:
+      type: integer
+    available_actions:
+      type: array
+      items: string
+    reviewer_feedback:
+      type: string
+    cumulative_reward:
+      type: float
+      range:
+      - 0.0
+      - 1.0
+    violations_found_so_far:
+      type: integer
+    negotiation_round:
+      type: integer
+    calibration_hint:
+      type: string
+    episode_done:
+      type: boolean
+    reward:
+      type: float
+action_space:
+  type: object
+  fields:
+    action_type:
+      type: string
+      enum:
+      - flag_violation
+      - submit_report
+      - accept_protocol
+      - request_clarification
+    violation_flags:
+      type: array
+      description: List of ViolationFlag objects
+    report_text:
+      type: string
+    explanation:
+      type: string
+reward:
+  type: float
+  range:
+  - 0.0
+  - 1.0
+  formula: total = step_rewards + normalized_grade * (1 - step_rewards)
+  description: 'Dense partial reward at every step plus a complementary headroom final
+    bonus. Positive: correct flag (+0.12), correct severity (+0.05), correction quality
+    (+0.04). Negative: false positive (-0.10), repeated action (-0.05), accepting
+    with criticals (-0.15). Final episode score adds normalized grader output multiplied
+    by remaining reward headroom. The medium-task grader is normalized to its task
+    ceiling before headroom scaling so perfect medium-task behavior can still reach
+    a total score of 1.0 without changing the grader. Hard task safety cap: accepting
+    protocol with unflagged CRITICAL violations caps total at 0.25.
+
+    '
+hardware:
+  min_cpu: 2
+  min_ram_gb: 8
+baseline_scores:
+  easy: 1.0
+  medium: 1.0
+  hard: 1.0
+  average: 1.0
+  model: Qwen/Qwen2.5-72B-Instruct
+  note: Produced by inference.py seed=42
