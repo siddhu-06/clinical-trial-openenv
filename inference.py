@@ -28,8 +28,10 @@ from clinical_trial_env.regulatory_rules import RULES
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+API_KEY = os.getenv("API_KEY")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+LLM_API_KEY = API_KEY or HF_TOKEN
 BENCHMARK = "clinical_trial_env"
 SUCCESS_THRESHOLD = 0.5
 
@@ -330,7 +332,7 @@ def _to_action(data: dict) -> ClinicalTrialAction:
 
 
 def _call_llm(client: object | None, obs: dict) -> ClinicalTrialAction:
-    if not HF_TOKEN or client is None:
+    if not LLM_API_KEY or client is None:
         return _build_heuristic_action(obs, reason="missing_api_key")
     user_prompt = build_user_prompt(obs)
     try:
@@ -464,10 +466,10 @@ def run_baseline() -> int:
         text=True,
     )
     client = None
-    if OpenAI is not None and HF_TOKEN:
+    if OpenAI is not None and LLM_API_KEY:
         client = OpenAI(
             base_url=API_BASE_URL,
-            api_key=HF_TOKEN,
+            api_key=LLM_API_KEY,
             max_retries=0,
             timeout=25,
         )
