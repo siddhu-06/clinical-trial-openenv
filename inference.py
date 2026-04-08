@@ -26,13 +26,12 @@ from clinical_trial_env.protocol_generator import SECTION_TITLES
 from clinical_trial_env.regulatory_rules import RULES
 
 
-os.environ.setdefault("API_BASE_URL", "https://router.huggingface.co/v1")
-os.environ.setdefault("API_KEY", "")
-API_BASE_URL = os.environ["API_BASE_URL"]
-API_KEY = os.environ["API_KEY"]
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+API_KEY = ""
 MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+API_KEY = HF_TOKEN or os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY") or ""
 BENCHMARK = "clinical_trial_env"
 SUCCESS_THRESHOLD = 0.5
 LLM_API_CALL_ATTEMPTS = 0
@@ -354,25 +353,6 @@ def _call_llm(client: object | None, obs: dict) -> ClinicalTrialAction:
         parsed = parse_llm_response(content)
         return _to_action(parsed)
 
-    if HF_TOKEN and client is not None:
-        try:
-            LLM_API_CALL_ATTEMPTS += 1
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=1500,
-                stream=False,
-            )
-            content = response.choices[0].message.content or ""
-            parsed = parse_llm_response(content)
-            return _to_action(parsed)
-        except Exception:
-            return _build_heuristic_action(obs, reason="llm_call_error")
-
     return _build_heuristic_action(obs, reason="missing_api_key")
 
 
@@ -517,14 +497,6 @@ def run_baseline() -> int:
     elif API_KEY:
         _print_stderr("OpenAI client unavailable for evaluator API_KEY path.")
         return 1
-    elif OpenAI is not None and HF_TOKEN:
-        client = OpenAI(
-            base_url=API_BASE_URL,
-            api_key=HF_TOKEN,
-            max_retries=0,
-            timeout=25,
-        )
-
     try:
         if not _wait_for_server(proc):
             _print_stderr("Server health check failed.")
