@@ -20,10 +20,17 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 WORKSPACE_ROOT = PROJECT_ROOT.parent
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from clinical_trial_env.models import ClinicalTrialAction
-from clinical_trial_env.protocol_generator import SECTION_TITLES
-from clinical_trial_env.regulatory_rules import RULES
+try:
+    from clinical_trial_env.models import ClinicalTrialAction
+    from clinical_trial_env.protocol_generator import SECTION_TITLES
+    from clinical_trial_env.regulatory_rules import RULES
+except ModuleNotFoundError:
+    from models import ClinicalTrialAction
+    from protocol_generator import SECTION_TITLES
+    from regulatory_rules import RULES
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
@@ -467,11 +474,17 @@ def run_task_with_logging(
 
 
 def run_baseline() -> int:
+    app_target = "clinical_trial_env.server.app:app"
+    try:
+        __import__("clinical_trial_env.server.app")
+    except ModuleNotFoundError:
+        app_target = "server.app:app"
+
     cmd = [
         sys.executable,
         "-m",
         "uvicorn",
-        "clinical_trial_env.server.app:app",
+        app_target,
         "--host",
         "0.0.0.0",
         "--port",
@@ -512,8 +525,7 @@ def run_baseline() -> int:
             try:
                 _warm_up_proxy(client)
             except Exception as exc:
-                _print_stderr(f"LLM proxy warmup failed: {exc}")
-                return 1
+                _print_stderr(f"LLM proxy warmup failed (continuing with fallback policy): {exc}")
 
         scores: dict[str, float] = {}
         for task in ["easy", "medium", "hard"]:
