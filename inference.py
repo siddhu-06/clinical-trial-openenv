@@ -26,12 +26,13 @@ from clinical_trial_env.protocol_generator import SECTION_TITLES
 from clinical_trial_env.regulatory_rules import RULES
 
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-API_KEY = os.getenv("API_KEY")
+os.environ.setdefault("API_BASE_URL", "https://router.huggingface.co/v1")
+os.environ.setdefault("API_KEY", "")
+API_BASE_URL = os.environ["API_BASE_URL"]
+API_KEY = os.environ["API_KEY"]
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
-LLM_API_KEY = API_KEY or HF_TOKEN
 BENCHMARK = "clinical_trial_env"
 SUCCESS_THRESHOLD = 0.5
 
@@ -332,10 +333,10 @@ def _to_action(data: dict) -> ClinicalTrialAction:
 
 
 def _call_llm(client: object | None, obs: dict) -> ClinicalTrialAction:
-    if not LLM_API_KEY or client is None:
-        return _build_heuristic_action(obs, reason="missing_api_key")
     user_prompt = build_user_prompt(obs)
-    try:
+    if API_KEY:
+        if client is None:
+            raise RuntimeError("OpenAI client unavailable for evaluator API_KEY path")
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
@@ -349,8 +350,26 @@ def _call_llm(client: object | None, obs: dict) -> ClinicalTrialAction:
         content = response.choices[0].message.content or ""
         parsed = parse_llm_response(content)
         return _to_action(parsed)
-    except Exception:
-        return _build_heuristic_action(obs, reason="llm_call_error")
+
+    if HF_TOKEN and client is not None:
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=1500,
+                stream=False,
+            )
+            content = response.choices[0].message.content or ""
+            parsed = parse_llm_response(content)
+            return _to_action(parsed)
+        except Exception:
+            return _build_heuristic_action(obs, reason="llm_call_error")
+
+    return _build_heuristic_action(obs, reason="missing_api_key")
 
 
 def _wait_for_server(proc: subprocess.Popen[str]) -> bool:
@@ -466,10 +485,17 @@ def run_baseline() -> int:
         text=True,
     )
     client = None
-    if OpenAI is not None and LLM_API_KEY:
+    if OpenAI is not None and API_KEY:
         client = OpenAI(
             base_url=API_BASE_URL,
-            api_key=LLM_API_KEY,
+            api_key=API_KEY,
+            max_retries=0,
+            timeout=25,
+        )
+    elif OpenAI is not None and HF_TOKEN:
+        client = OpenAI(
+            base_url=API_BASE_URL,
+            api_key=HF_TOKEN,
             max_retries=0,
             timeout=25,
         )
