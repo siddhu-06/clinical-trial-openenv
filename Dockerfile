@@ -1,5 +1,4 @@
-ARG BASE_IMAGE=openenv-base:latest
-FROM ${BASE_IMAGE}
+FROM python:3.12-slim
 
 WORKDIR /app
 
