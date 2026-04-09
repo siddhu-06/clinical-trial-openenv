@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from clinical_trial_env.counterpart_reviewer import generate_reviewer_feedback
 from clinical_trial_env.graders import (
+    STRICT_SCORE_EPSILON,
     compute_calibration_score,
     compute_f1,
     grade_easy,
@@ -249,8 +250,12 @@ class ClinicalTrialEnvironment(Environment):
                 "round": self._round,
             }
 
-        final_score_cap = 0.999 if self._done else 1.0
-        self._cumulative_reward = max(0.0, min(final_score_cap, self._cumulative_reward + step_reward))
+        final_score_floor = STRICT_SCORE_EPSILON if self._done else 0.0
+        final_score_cap = 1.0 - STRICT_SCORE_EPSILON if self._done else 1.0
+        self._cumulative_reward = max(
+            final_score_floor,
+            min(final_score_cap, self._cumulative_reward + step_reward),
+        )
         if self._done and "episode_summary" in info:
             info["episode_summary"]["final_grader_score"] = self._cumulative_reward
             info["reward_breakdown"] = self._last_reward_components
