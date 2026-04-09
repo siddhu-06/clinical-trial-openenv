@@ -82,10 +82,11 @@ class ClinicalTrialEnvironment(Environment):
     def reset(
         self,
         seed: int | None = None,
+        task_id: str | None = None,
         episode_id: str | None = None,
         **kwargs,
     ) -> ClinicalTrialObservation:
-        task = kwargs.get("task", "easy")
+        task = task_id or kwargs.get("task_id") or kwargs.get("task") or "easy"
         actual_seed = seed if seed is not None else 42
         task_value = task.lower()
         if task_value not in self.TASK_MAX_STEPS:
@@ -446,6 +447,7 @@ class ClinicalTrialEnvironment(Environment):
 
         return ClinicalTrialObservation(
             task=self._task,
+            task_id=self._task,
             step=self._current_step,
             max_steps=self.TASK_MAX_STEPS.get(self._task, 8),
             protocol_id=self._protocol.protocol_id,
@@ -456,8 +458,11 @@ class ClinicalTrialEnvironment(Environment):
             violations_found_so_far=violations_found,
             negotiation_round=self._round,
             calibration_hint=hint,
+            done=self._done,
             episode_done=self._done,
             reward=bounded_step_reward,
+            running_score=reported_cumulative_reward,
+            final_score=reported_cumulative_reward if self._done else None,
         )
 
     @property
@@ -496,7 +501,5 @@ class ClinicalTrialEnvironment(Environment):
             }
 
     def close(self) -> None:
-        """Clean up episode state on environment teardown."""
-        self._protocol = None
-        self._all_flags = []
-        self._done = True
+        """No-op cleanup for compatibility with HTTP wrappers that call close() per request."""
+        return None

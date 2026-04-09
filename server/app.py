@@ -23,10 +23,10 @@ except Exception:  # pragma: no cover
                 self._action_cls = action_cls
 
             def reset_environment(self, payload: dict[str, object]) -> dict[str, object]:
-                task = str(payload.get("task", "easy"))
+                task = str(payload.get("task_id") or payload.get("task") or "easy")
                 seed_raw = payload.get("seed", 42)
                 seed = int(seed_raw) if seed_raw is not None else 42
-                obs = self._env.reset(seed=seed, task=task)
+                obs = self._env.reset(seed=seed, task_id=task)
                 return obs.model_dump()
 
             def step_environment(self, payload: dict[str, object]) -> dict[str, object]:
@@ -80,8 +80,15 @@ def _gradio_builder(*args, **kwargs):
     return build_clinical_trial_ui(*args, **kwargs)
 
 
+_env_instance = ClinicalTrialEnvironment()
+
+
+def _env_factory() -> ClinicalTrialEnvironment:
+    return _env_instance
+
+
 app = create_app(
-    ClinicalTrialEnvironment,
+    _env_factory,
     ClinicalTrialAction,
     ClinicalTrialObservation,
     env_name="clinical_trial_env",

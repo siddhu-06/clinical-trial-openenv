@@ -63,6 +63,7 @@ class ClinicalTrialObservation(Observation):
     )
 
     task: str = Field(..., description="easy | medium | hard")
+    task_id: str = Field(..., description="Task identifier matching easy | medium | hard")
     step: int = Field(..., description="Current step number")
     max_steps: int = Field(..., description="Maximum steps for this task")
     protocol_id: str = Field(..., description="Unique protocol identifier")
@@ -76,5 +77,11 @@ class ClinicalTrialObservation(Observation):
         default="",
         description="Hint shown after step 2: 'Your severity classifications so far: X critical, Y major, Z minor'",
     )
+    done: bool = Field(default=False, description="Whether episode is complete")
     episode_done: bool = Field(default=False, description="Whether episode is complete")
     reward: float = Field(default=0.0, description="Most recent step reward")
+    running_score: float = Field(default=0.0, description="Current running task score")
+    final_score: float | None = Field(
+        default=None,
+        description="Final task score once the episode is complete",
+    )

@@ -390,6 +390,19 @@ def _wait_for_server(proc: subprocess.Popen[str]) -> bool:
     return False
 
 
+def _extract_observation_payload(payload: dict) -> tuple[dict, bool, float]:
+    if isinstance(payload.get("observation"), dict):
+        observation = dict(payload.get("observation", {}))
+        done = bool(payload.get("done", observation.get("episode_done", False)))
+        reward = float(payload.get("reward", observation.get("reward", 0.0)) or 0.0)
+        return observation, done, reward
+
+    observation = dict(payload)
+    done = bool(observation.get("episode_done", False))
+    reward = float(observation.get("reward", 0.0) or 0.0)
+    return observation, done, reward
+
+
 def run_task_with_logging(
     task: str,
     seed: int,
@@ -405,12 +418,11 @@ def run_task_with_logging(
     try:
         reset_resp = requests.post(
             "http://localhost:8000/reset",
-            json={"seed": seed, "task": task},
+            json={"seed": seed, "task_id": task, "task": task},
             timeout=15,
         )
         reset_resp.raise_for_status()
-        observation = reset_resp.json()
-        done = bool(observation.get("episode_done", False))
+        observation, done, _ = _extract_observation_payload(reset_resp.json())
 
         while not done:
             action = _call_llm(client, observation)
@@ -418,15 +430,11 @@ def run_task_with_logging(
 
             step_resp = requests.post(
                 "http://localhost:8000/step",
-                json=action.model_dump(),
+                json={"action": action.model_dump()},
                 timeout=20,
             )
             step_resp.raise_for_status()
-            result_dict = step_resp.json()
-
-            step_reward = float(result_dict.get("reward", 0.0))
-            done = bool(result_dict.get("done", False))
-            observation = dict(result_dict.get("observation", {}))
+            observation, done, step_reward = _extract_observation_payload(step_resp.json())
 
             rewards.append(step_reward)
             steps_taken += 1
