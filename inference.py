@@ -440,6 +440,7 @@ def run_task_with_logging(
             )
 
         final_score = float(observation.get("cumulative_reward", 0.0))
+        final_score = max(0.001, min(0.999, final_score))
         success = final_score >= SUCCESS_THRESHOLD
 
     except Exception as exc:

@@ -357,7 +357,11 @@ class ClinicalTrialEnvironment(Environment):
                 "cascade_detected": 0.0,
                 "efficiency": efficiency,
             }
-            normalized_final = min(1.0, final / 0.91) if final > 0.0 else 0.0
+            normalized_final = (
+                min(1.0 - STRICT_SCORE_EPSILON, final / 0.91)
+                if final > 0.0
+                else STRICT_SCORE_EPSILON
+            )
             return normalized_final * headroom
 
         final = grade_hard(
@@ -444,7 +448,7 @@ class ClinicalTrialEnvironment(Environment):
             protocol_text=protocol_text,
             available_actions=self.TASK_ACTIONS.get(self._task, ["flag_violation"]),
             reviewer_feedback=self._reviewer_feedback,
-            cumulative_reward=round(self._cumulative_reward, 4),
+            cumulative_reward=min(1.0 - STRICT_SCORE_EPSILON, round(self._cumulative_reward, 4)),
             violations_found_so_far=violations_found,
             negotiation_round=self._round,
             calibration_hint=hint,
