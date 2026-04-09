@@ -4,6 +4,12 @@ from clinical_trial_env.models import ViolationFlag
 from clinical_trial_env.protocol_generator import ClinicalProtocol
 from clinical_trial_env.regulatory_rules import RULES
 
+STRICT_SCORE_EPSILON = 0.001
+
+
+def _strict_open_unit_interval(value: float) -> float:
+    return max(STRICT_SCORE_EPSILON, min(1.0 - STRICT_SCORE_EPSILON, value))
+
 
 def keyword_overlap(text: str, keywords: list[str]) -> float:
     """Returns fraction of keywords found in text (case-insensitive). Returns 0.0 if keywords empty."""
@@ -118,7 +124,7 @@ def grade_easy(flags: list[ViolationFlag], protocol: ClinicalProtocol) -> float:
 
     calibration = compute_calibration_score(flags, protocol)
     final = 0.5 * f1 + 0.3 * severity_score + 0.2 * calibration
-    return max(0.0, min(1.0, final))
+    return _strict_open_unit_interval(final)
 
 
 def grade_medium(flags: list[ViolationFlag], protocol: ClinicalProtocol, steps_used: int) -> float:
@@ -153,7 +159,7 @@ def grade_medium(flags: list[ViolationFlag], protocol: ClinicalProtocol, steps_u
         + 0.15 * calibration
         + 0.10 * efficiency_bonus
     )
-    return max(0.0, min(1.0, final))
+    return _strict_open_unit_interval(final)
 
 
 def grade_hard(
@@ -215,4 +221,4 @@ def grade_hard(
     )
     if accepted_with_criticals:
         raw = min(raw, 0.25)
-    return max(0.0, min(1.0, raw))
+    return _strict_open_unit_interval(raw)

@@ -169,7 +169,7 @@ def test_grade_easy_perfect_score():
 def test_grader_bounds_medium_and_hard():
     proto_medium = generate_protocol("medium", 42)
     medium_score = grade_medium([], proto_medium, steps_used=8)
-    assert 0.0 <= medium_score <= 1.0
+    assert 0.0 < medium_score < 1.0
 
     proto_hard = generate_protocol("hard", 42)
     hard_score = grade_hard(
@@ -181,7 +181,12 @@ def test_grader_bounds_medium_and_hard():
         accepted_with_criticals=True,
         steps_used=14,
     )
-    assert 0.0 <= hard_score <= 1.0
+    assert 0.0 < hard_score < 1.0
+
+
+def test_easy_grader_stays_strictly_inside_unit_interval():
+    proto = generate_protocol("easy", 42)
+    assert 0.0 < grade_easy([], proto) < 1.0
 
 
 def test_episode_summary_info_populated_on_done():
